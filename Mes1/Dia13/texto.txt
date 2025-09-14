@@ -1,0 +1,8 @@
+Python é uma linguagem poderosa, simples e divertida.  
+Aprender Python todos os dias é uma ótima forma de evoluir na programação!  
+
+Muitas pessoas começam com "print('Olá, mundo!')" e, pouco a pouco, descobrem loops, funções, listas e dicionários.  
+A prática constante é mais importante do que a intensidade.  
+
+Python, Python, Python... quanto mais você pratica, mais fácil fica.  
+E lembre-se: a constância supera a motivação temporária.
