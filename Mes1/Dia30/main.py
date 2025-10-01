@@ -106,6 +106,139 @@ def salvar_dados(dados):
 
 
 
+def calcular_transporte_emissoes(transporte_info):
+    """
+    transporte_info: dict com chaves:
+        km_carro_semanais, km_moto_semanais, km_onibus_semanais,
+        km_bicicleta_pe_semanais, voos_curto_mes, voos_longo_mes
+    retorna emissões anuais em kg CO2e (transporte)
+    """
+    km_carro_ano = transporte_info.get("km_carro_semanais", 0) * 52
+    km_moto_ano = transporte_info.get("km_moto_semanais", 0) * 52
+    km_onibus_ano = transporte_info.get("km_onibus_semanais", 0) * 52
+    km_bike_pe_ano = transporte_info.get("km_bicicleta_pe_semanais", 0) * 52
+
+    em_carro = km_carro_ano * EM_FACTOR["carro"]
+    em_moto = km_moto_ano * EM_FACTOR["moto"]
+    em_onibus = km_onibus_ano * EM_FACTOR["onibus"]
+    em_bike_pe = 0  
+
+    voos_curto_ano = transporte_info.get("voos_curto_mes", 0) * 12
+    voos_longo_ano = transporte_info.get("voos_longo_mes", 0) * 12
+    em_voos = voos_curto_ano * EM_FACTOR["aviao_curto"] + voos_longo_ano * EM_FACTOR["aviao_longo"]
+
+    total_transp = em_carro + em_moto + em_onibus + em_bike_pe + em_voos
+    detalhe = {
+        "carro": em_carro,
+        "moto": em_moto,
+        "onibus": em_onibus,
+        "bike_pe": em_bike_pe,
+        "voos": em_voos
+    }
+    return total_transp, detalhe
+
+def calcular_alimentacao_emissoes(alim_info):
+    """
+    alim_info: dict com chaves:
+        carne_vermelha_semanais (num refeições/semana),
+        frango_peixe_semanais,
+        vegetariana_semanais
+    retorna emissões anuais em kg CO2e (alimentação)
+    """
+    carne_semana = alim_info.get("carne_vermelha_semanais", 0)
+    frango_semana = alim_info.get("frango_peixe_semanais", 0)
+    veg_semana = alim_info.get("vegetariana_semanais", 0)
+
+    carne_ano = carne_semana * 52 * FOOD_FACTOR_PER_MEAL["carne_vermelha"]
+    frango_ano = frango_semana * 52 * FOOD_FACTOR_PER_MEAL["frango_peixe"]
+    veg_ano = veg_semana * 52 * FOOD_FACTOR_PER_MEAL["vegetariana"]
+
+    total_food = carne_ano + frango_ano + veg_ano
+    detalhe = {
+        "carne_vermelha": carne_ano,
+        "frango_peixe": frango_ano,
+        "vegetariana": veg_ano
+    }
+    return total_food, detalhe
+
+def calcular_energia_emissoes(energia_info):
+    """
+    energia_info: dict com chaves:
+        kwh_mes (float), usa_renovavel (bool), aparelhos_standby (int)
+    retorna emissões anuais em kg CO2e e detalhe
+    """
+    kwh_mes = energia_info.get("kwh_mes", 0.0)
+    usa_renovavel = energia_info.get("usa_renovavel", False)
+    aparelhos_standby = energia_info.get("aparelhos_standby", 0)
+
+    kwh_ano = kwh_mes * 12
+    fator = EM_FACTOR["kwh"]
+    if usa_renovavel:
+        #  redução de 50% se usa fonte renovável local 
+        fator = fator * 0.5
+
+    em_energia = kwh_ano * fator
+
+    # impacto por aparelhos em standby, cada aparelho adiciona 15 kg CO2/ano
+    em_standby = aparelhos_standby * 15.0
+
+    total_energia = em_energia + em_standby
+    detalhe = {
+        "energia_red": em_energia,
+        "standby": em_standby
+    }
+    return total_energia, detalhe
+
+def calcular_residuos_emissoes(res_info):
+    """
+    res_info: dict com chaves:
+        lixo_litros_semanais (float) -> convert liters to kg roughly 1L=1kg
+        recicla (bool)
+        plastic_usage ('baixo'/'medio'/'alto')
+    retorna emissões anuais kg CO2e e detalhe
+    """
+    lixo_litros_semanais = res_info.get("lixo_litros_semanais", 0.0)
+    recicla = res_info.get("recicla", False)
+    plastic = res_info.get("plastic_usage", "medio")
+
+    kg_ano = lixo_litros_semanais * 52  # aproximadamente 1L/1kg
+    em_residuos = kg_ano * EM_FACTOR["residuos_por_kg"]
+
+    if recicla:
+        em_residuos *= 0.7
+
+    em_plastic = PLASTIC_IMPACT.get(plastic, PLASTIC_IMPACT["medio"])
+
+    total_residuos = em_residuos + em_plastic
+    detalhe = {
+        "residuos": em_residuos,
+        "plastic": em_plastic
+    }
+    return total_residuos, detalhe
+
+
+def calcular_pegada(transporte_info, alim_info, energia_info, res_info):
+    """
+    calcula pegada total anual, retorna dict com totais por categoria, detalhes e total
+    """
+    trans_total, trans_det = calcular_transporte_emissoes(transporte_info)
+    alim_total, alim_det = calcular_alimentacao_emissoes(alim_info)
+    energia_total, energia_det = calcular_energia_emissoes(energia_info)
+    res_total, res_det = calcular_residuos_emissoes(res_info)
+
+    total = trans_total + alim_total + energia_total + res_total
+
+    resultado = {
+        "transporte": {"total": trans_total, "detalhe": trans_det},
+        "alimentacao": {"total": alim_total, "detalhe": alim_det},
+        "energia": {"total": energia_total, "detalhe": energia_det},
+        "residuos": {"total": res_total, "detalhe": res_det},
+        "total_ano": total
+    }
+    return resultado
+
+
+
 
 
 def entrada_usuario():
