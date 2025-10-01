@@ -104,6 +104,7 @@ def salvar_dados(dados):
         json.dump(dados, f, indent=2, ensure_ascii=False)
 
 
+# ====================================== Funções de cálculo
 
 
 def calcular_transporte_emissoes(transporte_info):
@@ -238,6 +239,7 @@ def calcular_pegada(transporte_info, alim_info, energia_info, res_info):
     return resultado
 
 
+# ====================================== Funções auxiliares de análise & dicas
 
 def perfil_por_total(total_kg):
     """Classifica perfil por total anual (kg CO2)."""
@@ -314,6 +316,40 @@ def top_3_fontes(resultado):
     return items[:3]
 
 
+# ====================================== Funções de gamificação e histórico 
+
+def calcular_pontos_por_habitos(transporte_info, alim_info, energia_info, res_info):
+    pontos = 0
+    if transporte_info.get("km_bicicleta_pe_semanais", 0) >= 5:
+        pontos += PONTOS["usa_bicicleta"]
+
+    if energia_info.get("usa_renovavel", False):
+        pontos += PONTOS["usa_energia_renovavel"]
+
+    if res_info.get("recicla", False):
+        pontos += PONTOS["recicla"]
+
+
+    if alim_info.get("vegetariana_semanais", 0) > alim_info.get("carne_vermelha_semanais", 0):
+        pontos += PONTOS["reduz_carne"]
+
+    if transporte_info.get("voos_curto_mes", 0) == 0 and transporte_info.get("voos_longo_mes", 0) == 0:
+        pontos += PONTOS["evita_voo"]
+
+
+    return pontos
+
+
+def registrar_no_historico(dados_usuario, registro):
+    """
+    dados_usuario: estrutura carregada do JSON contendo historico, meta_anual_kg, pontos
+    registro: dict com inputs e resultado e timestamp
+    """
+    dados_usuario["historico"].append(registro)
+    dados_usuario["pontos"] = dados_usuario.get("pontos", 0) + registro.get("pontos_recebidos", 0)
+    salvar_dados(dados_usuario)
+
+
 
 def entrada_usuario():
     print("\nBem-vindo ao calculador de impacto ambiental pessoal.\n"
@@ -364,12 +400,52 @@ def entrada_usuario():
             plastic = "medio"
     res_info["plastic_usage"] = plastic
 
+
+
+
     resultado = calcular_pegada(transporte_info, alim_info, energia_info, res_info)
     total = resultado["total_ano"]
     perfil = perfil_por_total(total)
     comparar = comparar_com_medias(total)
+    dicas = gerar_dicas(resultado, transporte_info, alim_info, energia_info, res_info)
     top3 = top_3_fontes(resultado)
+    pontos_recebidos = calcular_pontos_por_habitos(transporte_info, alim_info, energia_info, res_info)
+    registro = {
+        "timestamp": datetime.now().isoformat(),
+        "transporte": transporte_info,
+        "alimentacao": alim_info,
+        "energia": energia_info,
+        "residuos": res_info,
+        "resultado": resultado,
+        "total_ano": total,
+        "perfil": perfil,
+        "comparacao": comparar,
+        "dicas": dicas,
+        "top3": top3,
+        "pontos_recebidos": pontos_recebidos
+    }
+    dados = carregar_dados()
+    registrar_no_historico(dados, registro)
 
 
+
+
+
+    print("\n=-= Relatório Resumido =-=")
+    print(f"Pegada total estimada (kg CO2 / ano): {total:.1f}")
+    print(f"Perfil: {perfil}")
+    print(f"Diferença em relação à média mundial: {comparar['vs_mundial_%']:+.1f}%")
+    print(f"Diferença em relação à média do Brasil: {comparar['vs_brasil_%']:+.1f}%")
+    print("\nTop 3 fontes de emissão:")
+    for nome, val in top3:
+        print(f"- {nome}: {val:.1f} kg CO2/ano")
+    print("\nDicas personalizadas (prioridade):")
+    for i, dica in enumerate(dicas[:5], start=1):
+        print(f"{i}. {dica}")
+    print(f"\nVocê ganhou {pontos_recebidos} pontos verdes nesta sessão.")
+    print(f"Total de pontos acumulados: {dados.get('pontos', 0)} (atualizado).")
+
+
+    
 if __name__ == "__main__":
     entrada_usuario()
