@@ -239,6 +239,80 @@ def calcular_pegada(transporte_info, alim_info, energia_info, res_info):
 
 
 
+def perfil_por_total(total_kg):
+    """Classifica perfil por total anual (kg CO2)."""
+    if total_kg <= PERFIL_THRESHOLDS["baixo"]:
+        return "Baixo impacto"
+    elif total_kg <= PERFIL_THRESHOLDS["moderado"]:
+        return "Moderado"
+    else:
+        return "Alto impacto"
+    
+
+def comparar_com_medias(total_kg):
+    """Retorna diferenças percentuais em relação às médias."""
+    diff_mundial = ((total_kg - REFERENCIAS["media_mundial"]) / REFERENCIAS["media_mundial"]) * 100
+    diff_brasil = ((total_kg - REFERENCIAS["media_brasil"]) / REFERENCIAS["media_brasil"]) * 100
+    return {"vs_mundial_%": diff_mundial, "vs_brasil_%": diff_brasil}
+
+def gerar_dicas(resultado, transporte_info, alim_info, energia_info, res_info):
+    """
+    Gera dicas personalizadas segundo as maiores categorias de emissão
+    e hábitos do usuário.
+    """
+    dicas = []
+    # ordenar categorias por impacto
+    categorias = [
+        ("transporte", resultado["transporte"]["total"]),
+        ("alimentacao", resultado["alimentacao"]["total"]),
+        ("energia", resultado["energia"]["total"]),
+        ("residuos", resultado["residuos"]["total"])
+    ]
+    categorias.sort(key=lambda x: x[1], reverse=True)
+
+
+    # dica baseada na maior fonte
+    maior = categorias[0][0]
+    if maior == "transporte":
+        if transporte_info.get("km_carro_semanais", 0) > 20:
+            dicas.append("Considere reduzir o uso do carro algumas vezes por semana ou fazer carona solidária.")
+
+        if transporte_info.get("voos_curto_mes", 0) > 0 or transporte_info.get("voos_longo_mes", 0) > 0:
+            dicas.append("Evite voos desnecessários; prefira ônibus/trecho ferroviário quando possível.")
+
+        dicas.append("Alternar alguns trajetos curtos por bicicleta ou caminhada reduz bastante emissões.")
+
+    elif maior == "alimentacao":
+        carne = alim_info.get("carne_vermelha_semanais", 0)
+        if carne > 2:
+            dicas.append("Diminuir refeições com carne vermelha para 1-2x/semana pode reduzir emissões consideravelmente.")
+        dicas.append("Incluir mais refeições vegetarianas e substituir carne vermelha por frango/peixe reduz impacto.")
+
+    elif maior == "energia":
+        if not energia_info.get("usa_renovavel", False):
+            dicas.append("Se possível, migre parte do consumo para fontes renováveis ou escolha um fornecedor verde.")
+        dicas.append("Trocar lâmpadas por LED e desligar aparelhos em standby reduz consumo elétrico.")
+
+    else:  # residuos
+        if not res_info.get("recicla", False):
+            dicas.append("Pratique reciclagem e compostagem para reduzir impactos do lixo.")
+        if res_info.get("plastic_usage", "medio") == "alto":
+            dicas.append("Reduza o uso de plástico descartável (use recipientes reutilizáveis).")
+
+    dicas.append("Monitore seu progresso semanalmente e tente pequenas metas para redução contínua.")
+    return dicas
+
+
+def top_3_fontes(resultado):
+    items = [
+        ("Transporte", resultado["transporte"]["total"]),
+        ("Alimentação", resultado["alimentacao"]["total"]),
+        ("Energia", resultado["energia"]["total"]),
+        ("Resíduos", resultado["residuos"]["total"])
+    ]
+    items.sort(key=lambda x: x[1], reverse=True)
+    return items[:3]
+
 
 
 def entrada_usuario():
@@ -289,3 +363,13 @@ def entrada_usuario():
         if plastic == "":
             plastic = "medio"
     res_info["plastic_usage"] = plastic
+
+    resultado = calcular_pegada(transporte_info, alim_info, energia_info, res_info)
+    total = resultado["total_ano"]
+    perfil = perfil_por_total(total)
+    comparar = comparar_com_medias(total)
+    top3 = top_3_fontes(resultado)
+
+
+if __name__ == "__main__":
+    entrada_usuario()
