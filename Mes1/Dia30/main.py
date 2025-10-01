@@ -85,6 +85,7 @@ PERFIL_THRESHOLDS = {
 
 
 
+# ====================================== Funções de persistência
 
 
 def carregar_dados():
@@ -315,6 +316,43 @@ def top_3_fontes(resultado):
     items.sort(key=lambda x: x[1], reverse=True)
     return items[:3]
 
+# ====================================== Simular cenario
+
+
+def simular_cenario(base_inputs, alteracoes):
+    """
+    base_inputs: dict contendo transporte_info, alim_info, energia_info, res_info
+    alteracoes: dict com alterações a aplicar (ex.: reduzir km_carro_semanais em 50%)
+    retorna tuple (resultado_base, resultado_simulado, economia_kg)
+    """
+    transporte = deepcopy(base_inputs["transporte"])
+    alim = deepcopy(base_inputs["alimentacao"])
+    energia = deepcopy(base_inputs["energia"])
+    res = deepcopy(base_inputs["residuos"])
+
+    for chave, valor in alteracoes.items():
+        if "." in chave:
+            cat, key = chave.split(".", 1)
+        elif ":" in chave:
+            cat, key = chave.split(":", 1)
+        else:
+            continue
+
+        if cat == "transporte":
+            transporte[key] = valor
+        elif cat == "alimentacao":
+            alim[key] = valor
+        elif cat == "energia":
+            energia[key] = valor
+        elif cat == "residuos":
+            res[key] = valor
+
+    base_res = calcular_pegada(base_inputs["transporte"], base_inputs["alimentacao"],
+                               base_inputs["energia"], base_inputs["residuos"])
+    sim_res = calcular_pegada(transporte, alim, energia, res)
+
+    economia = base_res["total_ano"] - sim_res["total_ano"]
+    return base_res, sim_res, economia
 
 # ====================================== Funções de gamificação e histórico 
 
@@ -446,6 +484,67 @@ def entrada_usuario():
     print(f"Total de pontos acumulados: {dados.get('pontos', 0)} (atualizado).")
 
 
-    
+    print("\nSe quiser, você pode simular mudanças rápidas (ex.: reduzir km de carro).")
+    sim = input("Deseja fazer uma simulação simples agora? (s/n): ").strip().lower()
+    if sim == "s":
+        print("\nOpções de simulação rápida:")
+        print("( 1 )  Reduzir km de carro semanais em 50%")
+        print("( 2 ) Substituir 2 refeições com carne vermelha por vegetarianas por semana")
+        print("( 3 ) Adotar energia renovável (simular)")
+        print("( 4 ) Reduzir um voo curto por mês")
+        escolha = input("Escolha (1/2/3/4): ").strip()
+
+        alter = {}
+        if escolha == "1":
+            alter["transporte.km_carro_semanais"] = transporte_info.get("km_carro_semanais", 0) * 0.5
+        elif escolha == "2":
+            carne = max(0, alim_info.get("carne_vermelha_semanais", 0) - 2)
+            veg = alim_info.get("vegetariana_semanais", 0) + 2
+            alter["alimentacao.carne_vermelha_semanais"] = carne
+            alter["alimentacao.vegetariana_semanais"] = veg
+        elif escolha == "3":
+            alter["energia.usa_renovavel"] = True
+        elif escolha == "4":
+            v = max(0, transporte_info.get("voos_curto_mes", 0) - 1)
+            alter["transporte.voos_curto_mes"] = int(v)
+        else:
+            print("Opção inválida. Encerrando simulação.")
+            return
+
+        base_inputs = {
+            "transporte": transporte_info,
+            "alimentacao": alim_info,
+            "energia": energia_info,
+            "residuos": res_info
+        }
+        base_res, sim_res, economia = simular_cenario(base_inputs, alter)
+        print("\nResultado da simulação:")
+        print(f"Pegada atual: {base_res['total_ano']:.1f} kg CO2/ano")
+        print(f"Pegada simulada: {sim_res['total_ano']:.1f} kg CO2/ano")
+        print(f"Econ. anual estimada: {economia:.1f} kg CO2/ano")
+
+    if dados.get("meta_anual_kg") is None:
+        definir_meta = input("\nDeseja definir uma meta anual de redução (kg CO2/ano)? (s/n): ").strip().lower()
+        if definir_meta == "s":
+            while True:
+                try:
+                    meta = float(input("Digite a meta (kg CO2/ano): ").strip())
+                    dados["meta_anual_kg"] = meta
+                    salvar_dados(dados)
+                    print("Meta registrada.")
+                    break
+                except ValueError:
+                    print("Valor inválido.")
+    else:
+        meta = dados.get("meta_anual_kg")
+        print(f"\nSua meta anual atual: {meta} kg CO2/ano")
+        if total <= meta:
+            print("Parabéns! Você já alcançou sua meta.")
+        else:
+            deficit = total - meta
+            print(f"Você precisa reduzir aproximadamente {deficit:.1f} kg CO2/ano para atingir a meta.")
+
+    print("\nRegistro salvo no histórico. Obrigado por monitorar seu impacto.")
+
 if __name__ == "__main__":
     entrada_usuario()
