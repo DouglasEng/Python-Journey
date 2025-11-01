@@ -27,7 +27,11 @@ def calcular_eficiencia(volume, intensidade, descanso):
     return round(min(eficiencia / 100, 100), 2)
 
 
-
+def calcular_tendencia(valores):
+    if len(valores) < 2:
+        return 0
+    diferencas = [valores[i] - valores[i - 1] for i in range(1, len(valores))]
+    return round(sum(diferencas) / len(diferencas), 2)
 
 
 
@@ -74,3 +78,71 @@ while True:
         "frequencia": frequencia
     }
     print()
+
+
+
+
+
+
+
+dados_corporais = {}
+while True:
+    semana = input("Semana (ou ENTER para encerrar): ").strip()
+    if not semana:
+        break
+    peso = float(input("Peso (kg): "))
+    gordura = float(input("Percentual de gordura (%): "))
+    medidas = {}
+    while True:
+        grupo = input("Grupo muscular (ex: Peito, Costas, Braço) ou ENTER para seguir: ").strip().capitalize()
+        if not grupo:
+            break
+        medida = float(input(f"Medida atual de {grupo} (cm): "))
+        medidas[grupo] = medida
+
+    dados_corporais[semana] = {"peso": peso, "gordura": gordura, "medidas": medidas}
+    print()
+
+
+print("\n=-= RELATORIO DE EVOLUÇÃO =-=\n")
+
+pesos = [d["peso"] for d in dados_corporais.values()]
+gorduras = [d["gordura"] for d in dados_corporais.values()]
+tendencia_peso = calcular_tendencia(pesos)
+tendencia_gordura = calcular_tendencia(gorduras)
+print(f"Variação média de peso: {tendencia_peso:+.2f} kg/semana")
+print(f"Variação média de gordura: {tendencia_gordura:+.2f}%/semana")
+
+crescimento = {}
+for grupo in dados_corporais[next(iter(dados_corporais))]["medidas"]:
+    valores = [d["medidas"].get(grupo, 0) for d in dados_corporais.values()]
+    tendencia = calcular_tendencia(valores)
+    crescimento[grupo] = tendencia
+
+print("\n=-= Crescimento Muscular por Grupo =-=")
+for grupo, taxa in crescimento.items():
+    print(f"{grupo}: {taxa:+.2f} cm/semana")
+print("\n=-= Analise de Correlação (Treino x Crescimento) =-=")
+for grupo, dados in treinos.items():
+    taxa = crescimento.get(grupo, 0)
+    if taxa > 0.3 and dados["eficiencia"] > 60:
+        status = "Treino eficiente"
+    elif taxa < 0 and dados["eficiencia"] < 40:
+        status = "Treino ineficiente"
+    else:
+        status = "Neutro"
+    print(f"{grupo}: {status} (Eficiencia {dados['eficiencia']} pts)")
+
+ranking = sorted(treinos.items(), key=lambda x: x[1]['eficiencia'], reverse=True)
+print("\n=-= Ranking de Eficiencia de Treino =-=")
+for i, (grupo, dados) in enumerate(ranking, start=1):
+    print(f"{i}. {grupo} – {dados['eficiencia']} pts")
+
+print("\n=-= Projeção de Evolução =-=")
+for grupo, taxa in crescimento.items():
+    if taxa > 0:
+        print(f"Se mantiver o ritmo, {grupo} crescerá +{taxa*4:.2f} cm no proximo mês.")
+    else:
+        print(f"{grupo} está em estagnação ou queda de rendimento.")
+
+print("\nAnalise concluída. Continue evoluindo com inteligência!")
