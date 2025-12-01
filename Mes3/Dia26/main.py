@@ -1,5 +1,5 @@
 """
-=== Desafio do Dia 26 — Visualização de Hábitos de Estudo com Pandas + Matplotlib ===
+=== Desafio do Dia 86 — Visualização de Hábitos de Estudo com Pandas + Matplotlib ===
 
 Descrição:
 Crie um DataFrame simulando horas estudadas ao longo de uma semana e analise os
